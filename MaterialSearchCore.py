@@ -8,7 +8,7 @@ from pymatgen.ext.matproj import MPRester
 import Batching
 Batching.setup()
 
-def MaterialSearch_GNOME(searchName, orderOfFilters, homeDir):
+def MaterialSearch_GNOME(searchName, orderOfFilters, homeDir, database):
     if(not os.path.isdir(searchName)):
         print(f"Creating search directory {searchName} and reading in GNOME database.")
         if(os.path.isfile("gnome_data_stable_materials_summary.csv")): #new version of the database has a different name than before, so I'm just renaming it to what it used to be lol
@@ -27,6 +27,25 @@ def MaterialSearch_GNOME(searchName, orderOfFilters, homeDir):
                             column = 'NElements',
                             value = NElements)
             results = results.replace([np.inf, -np.inf, np.nan], None) #replace infinite values and NaN with "None"
+            
+            ###converting property headings in GNoME database for MP property names (in cases where there's a direct translation)
+            results_headings = results.columns.to_list()
+            GNoME_to_MP_propertyNames={
+                            "Composition": "full_formula",
+                            "Reduced Formula": "pretty_formula",
+                            "Elements": "elements",
+                            "NElements": "nelements",
+                            "NSites": "nsites",
+                            "Volume": "volume",
+                            "Density": "density",
+                            "Space Group": "spacegroup.symbol",
+                            "Space Group Number": "spacegroup.number",
+                            "Crystal System": "spacegroup.crystal_system"
+            }
+            newHeadings = [GNoME_to_MP_propertyNames[prop] if prop in list(GNoME_to_MP_propertyNames.keys()) else prop for prop in results_headings]
+            results=results.set_axis(newHeadings, axis=1)
+            ###
+
             results.to_json(f"{initialSearchFilename}.json", orient="records", indent=4)
 
             #logging
@@ -38,23 +57,24 @@ def MaterialSearch_GNOME(searchName, orderOfFilters, homeDir):
         os.chdir(searchName)
 
 
-    Analysis(searchName, orderOfFilters, homeDir, database="GNOME")
+    Analysis(searchName, orderOfFilters, homeDir, database)
     os.chdir(homeDir)
 
 
-def MaterialSearch_MP(searchName, criteria, properties, orderOfFilters, homeDir):
-    APIkey = APIkeyChecker()
+def MaterialSearch_MP(searchName, APIkey, criteria, properties, orderOfFilters, homeDir, database):
 
     if(not os.path.isdir(searchName)):
         print(f"Creating search directory {searchName}.")
         os.mkdir(searchName)
         os.chdir(searchName)
 
-        initialFilterName = "FirstFilter"
+        initialFilterName = "MPquery"
         initialSearchFilename = f"0_{initialFilterName}"
         if(not os.path.isfile(f"{initialSearchFilename}.json")):
+            print("Performing Materials Project query.")
             with MPRester(APIkey) as mpr:
                 results = mpr.query(criteria, properties, chunk_size=10000)
+            print("Query complete.\n")
 
             #logging
             with open("SearchLog.txt", mode="w") as f:
@@ -72,11 +92,11 @@ def MaterialSearch_MP(searchName, criteria, properties, orderOfFilters, homeDir)
         os.chdir(searchName)
 
 
-    Analysis(searchName, orderOfFilters, homeDir, database="MP")
+    Analysis(searchName, orderOfFilters, homeDir, database)
     os.chdir(homeDir)
     print("\n"*4)
 
-def MaterialSearch(searchName:str, orderOfFilters:list[str], database:str, MPcriteria=None, MPproperties=None):
+def MaterialSearch(searchName:str, orderOfFilters:list[str], database:str, MPcriteria={}, MPproperties=['material_id', 'pretty_formula', 'spacegroup.number', 'nsites', "nelements"]):
     """
     The core function used to interact with this codebase.
     This is the function that user interacts with in order to perform a search of either the GNoME or MP databases.
@@ -95,13 +115,14 @@ def MaterialSearch(searchName:str, orderOfFilters:list[str], database:str, MPcri
     databaseDirName_dict = {"mp": "MP", "gnome": "GNoME"}
 
     if(database == "mp"):
+        APIkey = APIkeyChecker()
         databaseDirName = databaseDirName_dict[database]
         if(not os.path.isdir(databaseDirName)):
             os.mkdir(databaseDirName)
             os.chdir(databaseDirName)
         else:
             os.chdir(databaseDirName)
-        MaterialSearch_MP(searchName, MPcriteria, MPproperties, orderOfFilters, homeDir)
+        MaterialSearch_MP(searchName, APIkey, MPcriteria, MPproperties, orderOfFilters, homeDir, database)
     elif(database == "gnome"):
         databaseDirName = databaseDirName_dict[database]
         if(not os.path.isdir(databaseDirName)):
@@ -109,6 +130,6 @@ def MaterialSearch(searchName:str, orderOfFilters:list[str], database:str, MPcri
             os.chdir(databaseDirName)
         else:
             os.chdir(databaseDirName)
-        MaterialSearch_GNOME(searchName, orderOfFilters, homeDir)
+        MaterialSearch_GNOME(searchName, orderOfFilters, homeDir, database)
     else:
         print("Database is not recognised. Only database options are 'mp' (Materials Project) and 'gnome' (Google's GNoME database).\nTry again with either of these options, please.")

@@ -56,7 +56,11 @@ class Analysis:
             self.previousFilter = orderOfFilters[counter-1]
             self.previousFilterCounter = counter
             if(counter==0):
-                self.ReadAnalyseWrite(filters[filter], "Database", filter, counter)
+                if(self.database == "mp"):
+                    firstFilterName = "MPquery"
+                elif(self.database == "gnome"):
+                    firstFilterName = "Database"
+                self.ReadAnalyseWrite(filters[filter], firstFilterName, filter, counter)
             else:
                 self.ReadAnalyseWrite(filters[filter], orderOfFilters[counter-1], filter, counter)
 
@@ -120,7 +124,7 @@ class Analysis:
         """
         filteredResults = []
         for result in results:
-            formula = result["Reduced Formula"]
+            formula = result["pretty_formula"]
             if(Analysis._containsHalogen(formula)):
                 filteredResults.append(result)
         return filteredResults
@@ -150,7 +154,7 @@ class Analysis:
         """
         filteredResults = []
         for result in results:
-            formula = result["Reduced Formula"]
+            formula = result["pretty_formula"]
             if(Analysis._containsOxygen(formula)):
                 filteredResults.append(result)
         return filteredResults
@@ -194,7 +198,7 @@ class Analysis:
         """
         filteredResults = []
         for result in results:
-            formula = result["Reduced Formula"]
+            formula = result["pretty_formula"]
             if(Analysis._checkInorganic(formula)): #returns True if not organic (if C and H aren't both in the formula)
                 filteredResults.append(result)
         return filteredResults
@@ -277,7 +281,7 @@ class Analysis:
         """
         filteredResults = []
         for result in results:
-            formula = result["Reduced Formula"]
+            formula = result["pretty_formula"]
             if(Analysis._containsCu_or_Ni(formula)):
                 filteredResults.append(result)
         return filteredResults
@@ -308,7 +312,7 @@ class Analysis:
         """
         filteredResults = []
         for result in results:
-            formula = result["Reduced Formula"]
+            formula = result["pretty_formula"]
             if(Analysis._containsMetal(formula)):
                 filteredResults.append(result)
         return filteredResults
@@ -324,7 +328,7 @@ class Analysis:
         """
         filteredResults = []
         for result in results:
-            NElements = result["NElements"]
+            NElements = result["nelements"]
             if(NElements==2):
                 filteredResults.append(result)
         return filteredResults
@@ -338,7 +342,7 @@ class Analysis:
         """
         filteredResults = []
         for result in results:
-            NElements = result["NElements"]
+            NElements = result["nelements"]
             if(NElements<=3):
                 filteredResults.append(result)
         return filteredResults
@@ -375,7 +379,7 @@ class Analysis:
         numOfResults = len(results)
         filteredResults = []
         for result in results:
-            formula = result["Reduced Formula"]
+            formula = result["pretty_formula"]
             if(Analysis._containsFBlock(formula)):
                 filteredResults.append(result)
 
@@ -403,7 +407,7 @@ class Analysis:
         numOfResults = len(results)
         filteredResults = []
         for result in results:
-            formula = result["Reduced Formula"]
+            formula = result["pretty_formula"]
             if(not Analysis._containsFBlock(formula)): #flipping the functionality of the _containsFBlock function to get this 'anti' filter
                 filteredResults.append(result)
 
@@ -446,7 +450,7 @@ class Analysis:
         numOfResults = len(results)
         filteredResults = []
         for result in results:
-            formula = result["Reduced Formula"]
+            formula = result["pretty_formula"]
             if(not Analysis._containsActinide(formula)): #flipping the functionality of the _containsActinide function to get this 'anti' filter
                 filteredResults.append(result)
 
@@ -470,7 +474,7 @@ class Analysis:
         """
         filteredResults = []
         for result in results:
-            formula = result["Reduced Formula"]
+            formula = result["pretty_formula"]
             if(Composition(formula).contains_element_type("transition_metal")):
                 filteredResults.append(result)
         return filteredResults
@@ -479,7 +483,7 @@ class Analysis:
     def ContainsTMorF_Filter(results):
         filteredResults = []
         for result in results:
-            formula = result["Reduced Formula"]
+            formula = result["pretty_formula"]
             if(Composition(formula).contains_element_type("transition_metal") or Analysis._containsFBlock):
                 filteredResults.append(result)
         return filteredResults
@@ -504,7 +508,7 @@ class Analysis:
         """
         filteredResults = []
         for result in results:
-            formula = result["Reduced Formula"]
+            formula = result["pretty_formula"]
             if(Analysis._noIntermetallics(formula)):
                 filteredResults.append(result)
         return filteredResults
@@ -534,7 +538,7 @@ class Analysis:
         """
         filteredResults = []
         for result in results:
-            formula = result["Reduced Formula"]
+            formula = result["pretty_formula"]
             if(Analysis._containsCorN(formula)):
                 filteredResults.append(result)
         return filteredResults
@@ -559,7 +563,7 @@ class Analysis:
     def CheckMXeneRatioFilter(results):
         filteredResults = []
         for result in results:
-            formula = result["Reduced Formula"]
+            formula = result["pretty_formula"]
             if(Analysis._checkMXeneRatios(formula)):
                 filteredResults.append(result)
         return filteredResults
@@ -579,7 +583,7 @@ class Analysis:
     def LargeToSmallAmountRatioFilter7to1(results):
         filteredResults = []
         for result in results:
-            formula = result["Reduced Formula"]
+            formula = result["pretty_formula"]
             if(Analysis._7to1RatioRemover(formula)):
                 filteredResults.append(result)
         return filteredResults
@@ -642,7 +646,7 @@ class Analysis:
     def ChargeBalanceFilter(results): #known issue - this does not work for cases where there's only one atom of an element that can undergo charge disproportionation, e.g. BiO2
         filteredResults = []
         for result in results:
-            formula = result["Reduced Formula"]
+            formula = result["pretty_formula"]
             if(Analysis._smact_validity(formula)):
                 filteredResults.append(result)
         return filteredResults

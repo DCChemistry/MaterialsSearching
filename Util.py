@@ -25,6 +25,7 @@ def APIkeyChecker():
     APIkey = None #done so that APIkey is not lost in the scope of the with block
     if(not os.path.isfile("APIkey.txt")): #if APIkey.txt doesn't exist, ask for key and create txt file
         print("\nIt seems you do not have an API key saved.")
+        print("You can get your API key from: https://legacy.materialsproject.org/open")
         while(True):
             APIkey = input("\nPlease input your API key: ")
             print(f"Testing your given API key: {APIkey}")
@@ -51,6 +52,26 @@ def ConvertJSONresultsToExcel(JSONfileName): #do not need to give the .json exte
     if("condensed_struct" in df.columns.to_list()):
         df = df.drop("condensed_struct", axis=1)
     df.to_excel(f"{JSONfileName}.xlsx")
+
+def make_mpid_clickable(mpid, name):
+    return f'<a href="https://next-gen.materialsproject.org/materials/{mpid}" rel="noopener noreferrer" target="_blank">{name}</a>'
+
+def ConvertJSONresultsToHTML(JSONfileName): #do not need to give the .json extension - that's assumed
+    results = ReadJSONFile(JSONfileName)
+    df = pd.DataFrame.from_dict(results)
+    if("structure" in df.columns.to_list()):
+        df = df.drop("structure", axis=1)
+    
+    ########New code
+    if("condensed_struct" in df.columns.to_list()):
+        df = df.drop("condensed_struct", axis=1)
+    ########
+    #df=df.sort_values("e_above_hull")
+    df['material_id'] = df.apply(lambda x: make_mpid_clickable(x['material_id'], x['material_id']), axis=1)
+    html_df = df.to_html(render_links=True,escape=False)
+    text_file = open(f"{JSONfileName}.html", "w")
+    text_file.write(html_df)
+    text_file.close()
 
 # Disable printing
 def BlockPrint():
