@@ -38,7 +38,7 @@ def MaterialSearch_GNOME(searchName, orderOfFilters, homeDir):
         os.chdir(searchName)
 
 
-    Analysis(searchName, orderOfFilters, database="GNOME")
+    Analysis(searchName, orderOfFilters, homeDir, database="GNOME")
     os.chdir(homeDir)
 
 
@@ -72,7 +72,7 @@ def MaterialSearch_MP(searchName, criteria, properties, orderOfFilters, homeDir)
         os.chdir(searchName)
 
 
-    Analysis(searchName, orderOfFilters, database="MP")
+    Analysis(searchName, orderOfFilters, homeDir, database="MP")
     os.chdir(homeDir)
     print("\n"*4)
 

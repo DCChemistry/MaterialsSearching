@@ -18,17 +18,18 @@ from Batching import batch_map
 
 class Analysis:
 
-    def __init__(self, searchName:str, orderOfFilters:list, database:str):
+    def __init__(self, searchName:str, orderOfFilters:list, homeDir:str, database:str):
         #orderOfFilters is the order of the keys from 'filters' dictionary
         self.searchName = searchName
         self.database = database
+        self.homeDir = homeDir
 
 
         #########################################################################################################################################################
         #PUT IN NEW FILTERS IN THIS DICTIONARY. Format is "Name": Analysis.functionName  (leave the ones that start with 'self' in the dictionary below as is - they're fine as they are)
         filters = {
                     "Inorganic": Analysis.InorganicFilter,                     #Removes materials that contain both C and H, leaving only inorganic materials
-                    "Dimensionality": Analysis.DimensionalityFilter,           #Saves materials that have a specified dimensionality (2 by default). This is a VERY slow filter - try to use this as late as possible in your search.
+                    "Dimensionality": self.DimensionalityFilter,           #Saves materials that have a specified dimensionality (2 by default). This is a VERY slow filter - try to use this as late as possible in your search.
                     "Cu_or_Ni": Analysis.Ni_or_CuFilter,                       #Saves materials that contain Ni or Cu
                     "BinaryComp": Analysis.BinaryCompoundFilter,               #Saves binary compounds
                     "ContainsMetal": Analysis.ContainsMetalFilter,             #Saves materials that contain metals
@@ -40,7 +41,7 @@ class Analysis:
                     "MXeneRatio": Analysis.CheckMXeneRatioFilter,              #Saves materials that have an MXene ratio (use only after ContainsTM and ContainsCorN) - M(transition metal):X(C or N) - 2:1, 3:2, 4:3, 5:4
                     "ContainsOxygen": Analysis.ContainsOxygenFilter,
                     "7to1Ratio": Analysis.LargeToSmallAmountRatioFilter7to1,
-                    "PutStructuresIntoDB": Analysis.InputStructuresIntoData,
+                    "PutStructuresIntoDB": self.InputStructuresIntoData,
                     "GetCondensedStructures": Analysis.GetCondensedStructures,
                     "RemoveIntermetallics": Analysis.RemoveIntermetallicsFilter,
                     "ContainsTMorF": Analysis.ContainsTMorF_Filter,
@@ -154,8 +155,7 @@ class Analysis:
                 filteredResults.append(result)
         return filteredResults
 
-    @staticmethod
-    def _getStructure(result):
+    def _getStructure(self, result):
         """
         Used to obtain the structure of a material given its ID.
         
@@ -166,9 +166,7 @@ class Analysis:
         A pymatgen Structure object that you can analyse with Pymatgen.
         """
         id = result["MaterialId"]
-        cwd = os.getcwd()
-        dirAbove = cwd.replace(os.getcwd().split("/")[-1], "")[:-1]
-        struct = Structure.from_file(os.path.join(dirAbove, "by_id", f"{id}.CIF"))
+        struct = Structure.from_file(os.path.join(self.homeDir, "by_id", f"{id}.CIF"))
         return struct
 
     @staticmethod
@@ -217,8 +215,7 @@ class Analysis:
         #condense function (e.g., what do you do when there are more than one bonded component in the structure with different
         #dimensionalities, safest is just to take the max dimensionality).
 
-    @staticmethod
-    def DimensionalityFilter(results, requiredDim=2):
+    def DimensionalityFilter(self, results, requiredDim=2):
         """
         Dimensionality filter.
 
@@ -235,9 +232,9 @@ class Analysis:
         filteredResults=[]
         problemChildren = [] #I've done a search before where the search just keeled over on a certain material (a problem child) - this is why we need a problem children bin.
         for result in results:
-            struct = Analysis._getStructure(result)
+            struct = self._getStructure(result)
             try:
-                dim = Analysis._get_dimensionality(struct)
+                dim = self._get_dimensionality(struct)
                 if(dim==requiredDim):
                     result["dim"] = dim
                     filteredResults.append(result)
@@ -693,24 +690,22 @@ class Analysis:
         filter will be created.
         """
         structureDirName = f"{self.previousFilterCounter}_{self.previousFilter}_structures"
-        print(structureDirName)
         if(not os.path.isdir(structureDirName)):
+            print(f"Creating {structureDirName} directory to store structures.")
             os.mkdir(structureDirName)
             for result in results:
                 id = result["MaterialId"]
-                cwd = os.getcwd()
-                dirAbove = cwd.replace(os.getcwd().split("/")[-1], "")[:-1]
-                shutil.copy(os.path.join(dirAbove, "by_id", f"{id}.CIF"), structureDirName)
+                shutil.copy(os.path.join(self.homeDir, "by_id", f"{id}.CIF"), structureDirName)
 
         return results
 
-    @staticmethod
-    def InputStructuresIntoData(results):
+
+    def InputStructuresIntoData(self, results):
         counter = 0
         numOfResults = len(results)
         print("Acquiring structures and saving them in the database.")
         for result in results:
-            struct = Analysis._getStructure(result)
+            struct = self._getStructure(result)
             result["structure"] = struct
                         # Incrementing the counter
             counter += 1
