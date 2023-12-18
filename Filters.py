@@ -18,9 +18,10 @@ from Batching import batch_map
 
 class Analysis:
 
-    def __init__(self, searchName:str, orderOfFilters:list):
+    def __init__(self, searchName:str, orderOfFilters:list, database:str):
         #orderOfFilters is the order of the keys from 'filters' dictionary
         self.searchName = searchName
+        self.database = database
 
 
         #########################################################################################################################################################

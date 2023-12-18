@@ -4,6 +4,7 @@ import sys, os
 import pandas as pd
 from pymatgen.core.periodic_table import Element
 import numpy as np
+from pymatgen.ext.matproj import MPRester
 
 #Functions used by MaterialSearchCore.py to prep GNOME data.
 ########################################
@@ -19,6 +20,28 @@ def TurnElementsIntoList(elements):
     elements = elements.split()
     return list(elements)
 #########################################
+
+def APIkeyChecker():
+    APIkey = None #done so that APIkey is not lost in the scope of the with block
+    if(not os.path.isfile("APIkey.txt")): #if APIkey.txt doesn't exist, ask for key and create txt file
+        print("\nIt seems you do not have an API key saved.")
+        while(True):
+            APIkey = input("\nPlease input your API key: ")
+            print(f"Testing your given API key: {APIkey}")
+            with MPRester(APIkey) as mpr:
+                try:
+                    mpr.get_structure_by_material_id("mp-149")
+                    print("API key is valid. Saving API key to file: APIkey.txt")
+                    with open('APIkey.txt', 'w') as f:
+                        f.write(APIkey)
+                        return APIkey
+                except:
+                    print(f"API key {APIkey} was invalid.")
+
+    else:
+        with open("APIkey.txt", "r") as f:
+            APIkey= f.read()
+            return APIkey
 
 def ConvertJSONresultsToExcel(JSONfileName): #do not need to give the .json extension - that's assumed
     results = ReadJSONFile(JSONfileName)
