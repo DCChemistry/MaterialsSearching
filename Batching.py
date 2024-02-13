@@ -28,7 +28,7 @@ def batch(batch_size):
         return wrapper
     return wrap
 
-def batch_map(func, input_args: list, batch_size: int, callback=None, with_batch=None) -> list:
+def batch_map(func, input_args: list, batch_size: int, with_task=None, with_batch=None) -> list:
     """Batch runs a function in different processes using a ProcessPoolExecutor
 
     Args:
@@ -61,7 +61,7 @@ def batch_map(func, input_args: list, batch_size: int, callback=None, with_batch
         for task in sliced:
             if type(task) != list:
                 task = [task]
-            future = _common_pool.apply_async(func, task, callback=callback)
+            future = _common_pool.apply_async(func, task, callback=with_task)
             futures.append(future)
 
         batch = []        
@@ -123,7 +123,7 @@ if __name__ == "__main__":
                 Simple canary test for batch results
             """
             batches = []
-            results = batch_map(lambda a, b: a * b, TASKS, 3, callback=lambda task: print(task), with_batch=lambda batch: batches.append(batch))
+            results = batch_map(lambda a, b: a * b, TASKS, 3, with_task=lambda task: print(task), with_batch=lambda batch: batches.append(batch))
 
             self.assertListEqual(results, TASKS_RESULTS)
             self.assertListEqual(batches, BATCH_3_RESULTS)
