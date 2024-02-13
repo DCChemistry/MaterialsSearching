@@ -8,11 +8,12 @@ from pymatgen.analysis.dimensionality import get_structure_components
 from pymatgen.analysis.local_env import MinimumDistanceNN
 from pymatgen.core.periodic_table import Element
 from robocrys import StructureCondenser
-from Util import SaveDictAsJSON, ReadJSONFile, ListOfTheElements, ConvertJSONresultsToExcel, BlockPrint, EnablePrint
+from Util import SaveDictAsJSON, ReadJSONFile, ListOfTheElements, ConvertJSONresultsToExcel, ConvertJSONresultsToHTML, BlockPrint, EnablePrint
 import smact
 import numpy as np
 import itertools
 from smact.screening import pauling_test
+import pandas as pd
 
 from Batching import batch_map
 
@@ -42,7 +43,7 @@ class Analysis:
                     "ContainsOxygen": Analysis.ContainsOxygenFilter,
                     "7to1Ratio": Analysis.LargeToSmallAmountRatioFilter7to1,
                     "PutStructuresIntoDB": self.InputStructuresIntoData,
-                    "GetCondensedStructures": Analysis.GetCondensedStructures,
+                    "GetCondensedStructures": self.GetCondensedStructures,
                     "RemoveIntermetallics": Analysis.RemoveIntermetallicsFilter,
                     "ContainsTMorF": Analysis.ContainsTMorF_Filter,
                     "Contains3orLessElem": Analysis.TernaryOrLessCompoundFilter,
@@ -55,6 +56,8 @@ class Analysis:
         for counter, filter in enumerate(orderOfFilters):
             self.previousFilter = orderOfFilters[counter-1]
             self.previousFilterCounter = counter
+            self.currentFilter = orderOfFilters[counter]
+            self.currentFilterCounter = counter+1
             if(counter==0):
                 if(self.database == "mp"):
                     firstFilterName = "MPquery"
@@ -75,7 +78,10 @@ class Analysis:
             results = ReadJSONFile(f"{numberInQueue}_{prevAnalysisTag}")
             analysisResults = analysisType(results)
             SaveDictAsJSON(f"{numberInQueue+1}_{newAnalysisTag}", analysisResults)
-            ConvertJSONresultsToExcel(f"{numberInQueue+1}_{newAnalysisTag}")
+            if(self.database == "mp"):
+                ConvertJSONresultsToHTML(f"{numberInQueue+1}_{newAnalysisTag}")
+            elif(self.database == "gnome"):
+                ConvertJSONresultsToExcel(f"{numberInQueue+1}_{newAnalysisTag}")
             print(f"{newAnalysisTag} analysis complete.")
             # ^ numberInQueue+1 starts from 1, hence numberInQueue without the +1 is the previous numberInQueue
             if(type(results) == dict):
@@ -256,7 +262,34 @@ class Analysis:
         if(len(problemChildren)!=0):
             SaveDictAsJSON("ProblemChildren_Dim", problemChildren)
         return filteredResults
-    
+
+    @staticmethod
+    def DimensionalityIdentifier(results):
+        """
+        Important to note, this identifier removes 0D materials
+        #(w.r.t. the special atom and its neighbours), but
+        #keeps higher dimensional structures.
+        """
+        results = Analysis._loadStructures(results)
+        print("Structures acquired.")
+        structures = [struct["structure"] for struct in results]
+        filteredResults=[]
+        problemChildren = [] #I've done a search where a search has just keeled over on a certain material - this is why we need a problem children bin.
+        for i in range(len(results)):
+            struct = structures[i]
+            try:
+                dim = Analysis._get_dimensionality(struct)
+                results[i]["dim"] = dim
+                filteredResults.append(results[i])
+            except:
+                results[i]["FailedOnFilter"] = "Dim"
+                problemChildren.append(results[i])
+        if(len(problemChildren)!=0):
+            problemChildren = Analysis._storeStructures(problemChildren)
+            SaveDictAsJSON("ProblemChildren_Dim", problemChildren)
+        filteredResults = Analysis._storeStructures(filteredResults)
+        return filteredResults
+
     @staticmethod
     def _containsCu_or_Ni(formula):
         """
@@ -661,26 +694,74 @@ class Analysis:
         EnablePrint()
         return condensedStruct
 
-    @staticmethod
-    def GetCondensedStructures(results):
-        counter = [0]
+
+    def GetCondensedStructures(self, results):
+        results = results[:14] #for testing purposes I'm using a smaller number of results
+        batch_size = 5
+        batchDirName = f"{self.currentFilterCounter}_{self.currentFilter}_batches"
+        if(os.path.isdir(batchDirName)):
+            print("Previous batches found. Continuing from last batch.")
+            numOfcompletedBatches = len(os.listdir(batchDirName))
+            print(f"No. of completed batches: {numOfcompletedBatches}")
+            numOfCompletedTasks = batch_size*numOfcompletedBatches
+            task_counter = [numOfCompletedTasks]
+            batch_counter = [numOfcompletedBatches]
+            results = results[numOfCompletedTasks:]
+        else:
+            task_counter = [0]
+            batch_counter = [0]
         numOfResults = len(results)
+        
         results = Analysis._loadStructures(results)
 
         def with_task(result):
-            counter[0] += 1
+            task_counter[0] += 1
             now = datetime.now()
             current_time = now.strftime("%H:%M:%S")
-            print(f"[{current_time}]: {counter}/{numOfResults}")
+            print(f"[{current_time}]: {task_counter}/{numOfResults}")
+        
+        def with_batch(batch_results):
+            batch_counter[0] += 1
+            print(f"\n\nCompleted batch {batch_counter[0]}\n\n")
+            batchDirName = f"{self.currentFilterCounter}_{self.currentFilter}_batches"
+            if(batch_counter[0] == 1):
+                if(not os.path.isdir(batchDirName)):
+                    os.mkdir(batchDirName)
+            os.chdir(batchDirName)
+            batch_results = Analysis._storeStructures(batch_results)
+            SaveDictAsJSON(f"batch_{batch_counter[0]}", batch_results)
+            os.chdir("..")
 
         def filter(result):
             struct = result["structure"]
-            condensedStruct = Analysis._condense(struct)
-            result["condensed_struct"] = condensedStruct
-            return result
+            try:
+                condensedStruct = Analysis._condense(struct)
+                result["condensed_struct"] = condensedStruct
+                return result
+            except:
+                result = Analysis._storeStructures(result)
+                if(os.path.isfile("ProblemChildren_GetCondensedStructures.json")):
+                    problemChild = pd.DataFrame.from_dict(result)
+                    theOtherProblemChildren = pd.read_json("ProblemChildren_GetCondensedStructures.json")
+                    problemChildren=pd.concat([theOtherProblemChildren, problemChild])
+                    problemChildren.to_json("ProblemChildren_GetCondensedStructures.json", orient="records", indent=4)
+                else:
+                    problemChild = pd.DataFrame.from_dict(result)
+                    problemChild.to_json("ProblemChildren_GetCondensedStructures.json", orient="records", indent=4)
 
-        batch_map(filter, results, 200, callback=with_task)
+        batch_map(filter, results, batch_size, with_task=with_task, with_batch=with_batch)
         results = Analysis._storeStructures(results)
+        numOfResultsInMemory = len(results)
+
+        if(numOfResultsInMemory != numOfResults): #only true if the program restarted from some existing batched results
+            allResults = []
+            batchedResults = os.listdir(batchDirName)
+            for batchedResultsFile in batchedResults:
+                resultsListOfDicts=ReadJSONFile(os.path.join(batchDirName, batchedResultsFile.replace(".json", "")))
+                allResults+=resultsListOfDicts
+            results = allResults
+
+
         return results
 
     def GetStructures(self, results): #this is a non-static method, hence the lack of the @staticmethod decorator - this relies on an instance of the Analysis class.
@@ -702,7 +783,6 @@ class Analysis:
                 shutil.copy(os.path.join(self.homeDir, "by_id", f"{id}.CIF"), structureDirName)
 
         return results
-
 
     def InputStructuresIntoData(self, results):
         counter = 0
