@@ -61,7 +61,7 @@ Then you will need to provide this binary to poetry by using
 
 Now you will be able to install the necessary dependencies by typing
 
-```poetry install --no-root`
+```poetry install --no-root```
 
 and subsequently activate the environment with
 
