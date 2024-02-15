@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "MaterialsSearching"
+version = "0.1.0"
+description = ""
+authors = ["Dan Criveanu"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11.5"
+
+json-tricks = "^3.17.3"
+numpy = "^1.26.2"
+pandas = "^1.5.3"
+pymatgen = "^2023.11.12"
+robocrys = "^0.2.8"
+ruamel-yaml = "^0.17.23"
+setuptools = "^68.0.0"
+smact = "^2.5.4"
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.29.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

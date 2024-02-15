@@ -162,3 +162,5 @@ by_id.zip
 .DS_Store
 searchingTests.ipynb
 APIkey.txt
+testingModules.ipynb
+poetry.lock
