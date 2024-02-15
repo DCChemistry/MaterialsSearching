@@ -57,7 +57,7 @@ you need to locate the path to the Python 3.11 binary. Once you have this path, 
 
 Then you will need to provide this binary to poetry by using
 
-```poetry use env <PATH-TO-PYTHON3.11-BIN>```
+```poetry env use <PATH-TO-PYTHON3.11-BIN>```
 
 Now you will be able to install the necessary dependencies by typing
 
